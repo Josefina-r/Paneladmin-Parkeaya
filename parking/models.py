@@ -16,7 +16,7 @@ class ParkingLot(models.Model):
     longitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     horario_apertura = models.TimeField(blank=True, null=True)
     horario_cierre = models.TimeField(blank=True, null=True)
-    telefono = models.CharField(max_length=15, default="000000000")  # 📞 Campo nuevo
+    telefono = models.CharField(max_length=15, default="000000000")  
     creado_en = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

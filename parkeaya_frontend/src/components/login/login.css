@@ -1,0 +1,314 @@
+:root {
+  --primary: #1e40af;
+  --primary-light: #2563eb;
+  --primary-dark: #1e3a8a;
+  --secondary: #475569;
+  --accent: #f59e0b;
+  --light: #e2e8f0;
+  --dark: #0a0f1c;
+  --dark-gray: #111827;
+  --gray: #4b5563;
+  --success: #059669;
+  --danger: #dc2626;
+  --border-radius: 16px;
+  --box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+  --transition: all 0.3s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: var(--dark);
+}
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+  background: linear-gradient(135deg, #111827 0%, #0a0f1c 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(30, 64, 175, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(30, 64, 175, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(30, 64, 175, 0.07) 0%, transparent 50%);
+}
+
+.login-card {
+  background: #111827;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  z-index: 1;
+  position: relative;
+  animation: fadeIn 0.8s ease-out;
+  border: 1px solid #1f2937;
+}
+
+.brand-header {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #1e1b4b 100%);
+  color: white;
+  padding: 40px 20px;
+  text-align: center;
+  position: relative;
+  border-bottom: 1px solid #1f2937;
+}
+
+.brand-header::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #1e1b4b;
+}
+
+.brand-name {
+  font-size: 34px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-tagline {
+  font-size: 14px;
+  opacity: 0.8;
+  font-weight: 400;
+  color: #cbd5e1;
+}
+
+.login-form {
+  padding: 40px 30px 30px;
+}
+
+.login-form h2 {
+  color: var(--light);
+  margin-bottom: 10px;
+  font-size: 26px;
+  font-weight: 700;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.welcome-text {
+  color: #94a3b8;
+  margin-bottom: 30px;
+  font-size: 15px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--light);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 16px 18px;
+  border: 2px solid #374151;
+  border-radius: 12px;
+  font-size: 16px;
+  transition: var(--transition);
+  background-color: #1f2937;
+  color: var(--light);
+  font-weight: 500;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background-color: #111827;
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.3);
+  transform: translateY(-1px);
+}
+
+.form-group input::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 17px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
+  margin-top: 15px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.login-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(30, 64, 175, 0.6);
+}
+
+.login-btn:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.login-btn:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.error-message {
+  background-color: rgba(220, 38, 38, 0.15);
+  color: #fca5a5;
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.admin-note {
+  margin-top: 30px;
+  padding: 18px;
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border-radius: 10px;
+  border-left: 4px solid var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.admin-note p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.admin-note strong {
+  color: var(--light);
+  font-weight: 700;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .login-card {
+    max-width: 100%;
+    margin: 10px;
+  }
+  
+  .login-form {
+    padding: 30px 20px 25px;
+  }
+  
+  .brand-header {
+    padding: 30px 15px;
+  }
+  
+  .brand-name {
+    font-size: 28px;
+  }
+  
+  .login-form h2 {
+    font-size: 22px;
+  }
+  
+  .form-group input {
+    padding: 14px 16px;
+  }
+  
+  .login-btn {
+    padding: 15px;
+  }
+}
+
+/* Efectos de profundidad */
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0.3;
+}

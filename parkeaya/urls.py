@@ -15,6 +15,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+"""
+URL configuration for parkeaya project.
+"""
+
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
@@ -22,6 +26,9 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+
+# IMPORTAR LAS VISTAS DEL DASHBOARD ← AGREGAR ESTO
+from parking.views import dashboard_stats, recent_reservations
 
 from users.views import UserViewSet, CarViewSet
 from parking.views import ParkingLotViewSet
@@ -43,6 +50,10 @@ urlpatterns = [
     # URLs específicas PRIMERO
     path('api/users/', include('users.urls')),
     
+   
+    path('api/dashboard/stats/', dashboard_stats, name='dashboard_stats'),
+    path('api/dashboard/recent-reservations/', recent_reservations, name='recent_reservations'),
+    
     # Router DESPUÉS
     path('api/', include(router.urls)),
     
@@ -51,5 +62,5 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Autenticación de cuenta gmail
-     path("auth/", include("dj_rest_auth.urls")), 
+    path("auth/", include("dj_rest_auth.urls")), 
 ]
