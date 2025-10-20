@@ -14,6 +14,11 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .serializers import UserSerializer
 
+# AGREGAR ESTOS IMPORTS
+from rest_framework.decorators import api_view, permission_classes
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+
 
 
 # Registro de usuario
@@ -22,9 +27,9 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
-def create(self, request, *args, **kwargs):
-    print("DATA LLEGANDO DESDE ANDROID:", request.data)  # 👈
-    return super().create(request, *args, **kwargs)
+    def create(self, request, *args, **kwargs):
+        print("DATA LLEGANDO DESDE ANDROID:", request.data)  # 👈
+        return super().create(request, *args, **kwargs)
 
 # Login personalizado con JWT
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -66,3 +71,117 @@ class CarViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
+
+# =============================================================================
+# AGREGAR ESTAS VISTAS ADICIONALES PARA EL LOGIN DEL PANEL ADMIN
+# =============================================================================
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def admin_login(request):
+    """
+    Login específico para administradores del panel web
+    """
+    username = request.data.get('username')
+    password = request.data.get('password')
+    
+    print(f"Intento de login admin: {username}")  # 👈 Para debug
+    
+    # Autenticar usuario
+    user = authenticate(username=username, password=password)
+    
+    if user is not None and user.is_active:
+        # Verificar si es staff/admin
+        if not user.is_staff and not user.is_superuser:
+            return Response(
+                {'error': 'Acceso solo para administradores'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Generar tokens JWT usando SimpleJWT
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser
+            }
+        })
+    else:
+        return Response(
+            {'error': 'Credenciales inválidas'}, 
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def simple_login(request):
+    """
+    Login simple para cualquier usuario (admin o regular)
+    """
+    username = request.data.get('username')
+    password = request.data.get('password')
+    
+    print(f"Intento de login simple: {username}")  # 👈 Para debug
+    
+    user = authenticate(username=username, password=password)
+    
+    if user is not None and user.is_active:
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser
+            }
+        })
+    else:
+        return Response(
+            {'error': 'Credenciales inválidas'}, 
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_user_profile(request):
+    """
+    Obtener perfil del usuario autenticado
+    """
+    user = request.user
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser
+    })
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def check_admin_permission(request):
+    """
+    Verificar si el usuario tiene permisos de administrador
+    """
+    user = request.user
+    is_admin = user.is_staff or user.is_superuser
+    
+    return Response({
+        'is_admin': is_admin,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser
+        }
+    })

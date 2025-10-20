@@ -7,7 +7,7 @@ User = settings.AUTH_USER_MODEL
 class ParkingLot(models.Model):
     NIVEL_SEGURIDAD_CHOICES = [
         (1, 'Básico'),
-        (2, 'Moderado'), 
+        (2, 'Moderado'),
         (3, 'Alto'),
         (4, 'Premium'),
         (5, 'Máxima Seguridad')
@@ -43,16 +43,25 @@ class ParkingLot(models.Model):
             self.plazas_disponibles = self.total_plazas
         super().save(*args, **kwargs)
 
+    def actualizar_rating(self):
+        """Recalcula el rating promedio y total de reseñas."""
+        reseñas = self.reseñas.all()
+        if reseñas.exists():
+            promedio = sum([r.rating for r in reseñas]) / reseñas.count()
+            self.rating_promedio = round(promedio, 2)
+            self.total_reseñas = reseñas.count()
+        else:
+            self.rating_promedio = 0
+            self.total_reseñas = 0
+        self.save(update_fields=['rating_promedio', 'total_reseñas'])
+
     @property
     def esta_abierto(self):
         """Verifica si el estacionamiento está abierto según la hora actual"""
         from django.utils import timezone
-        from datetime import datetime
-        
+        ahora = timezone.now().time()
         if not self.horario_apertura or not self.horario_cierre:
             return True
-            
-        ahora = timezone.now().time()
         return self.horario_apertura <= ahora <= self.horario_cierre
 
     @property
