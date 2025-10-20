@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
+    #'django.contrib.gis',
     # third party
     'rest_framework',
     'rest_framework.authtoken',
@@ -49,6 +51,7 @@ INSTALLED_APPS = [
     #autentificacion de cuenta gmail
     "django.contrib.sites",
     "dj_rest_auth",
+    'django_filters', 
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
@@ -75,6 +78,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -111,6 +115,7 @@ WSGI_APPLICATION = 'parkeaya.wsgi.application'
 
 DATABASES = {
     'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'parkeaya_db',   
         'USER': 'postgres',     
@@ -165,4 +170,7 @@ AUTH_USER_MODEL = 'users.User'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000", # CRA
+    "http://localhost:5173", # Vite
+]
