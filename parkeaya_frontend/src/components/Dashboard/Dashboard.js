@@ -39,27 +39,90 @@ function Dashboard() {
 
   const loadGlobalStats = async () => {
     try {
-      const response = await fetch(`${API_BASE}/parking/admin/dashboard-stats/`, {
+      const response = await fetch(`${API_BASE}/dashboard/stats/`, {
         headers: getAuthHeaders()
       });
       
+      console.log('Dashboard stats response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        setGlobalStats(data);
+        console.log('Dashboard stats data:', data);
+        
+        // TRANSFORMAR LOS DATOS al formato que espera tu frontend
+        const transformedStats = transformStatsData(data);
+        setGlobalStats(transformedStats);
+      } else {
+        console.error('Error response:', response.status, response.statusText);
+        setGlobalStats(getDefaultStats());
       }
     } catch (error) {
       console.error('Error loading global stats:', error);
+      setGlobalStats(getDefaultStats());
     }
   };
 
+  // Función para transformar los datos de la API al formato del frontend
+  const transformStatsData = (apiData) => {
+    return {
+      reservations: {
+        total: apiData.activeReservations || 0,
+        active: apiData.activeReservations || 0,
+        completed: 0 // No disponible en tu API actual
+      },
+      payments: {
+        total: 0, // No disponible en tu API actual
+        revenue: apiData.totalRevenue || 0,
+        completed: 0, // No disponible en tu API actual
+        pending: 0 // No disponible en tu API actual
+      },
+      parking: {
+        total: apiData.availableParkings || 0, // Asumiendo que availableParkings es el total
+        available: apiData.availableParkings || 0
+      },
+      users: {
+        total: apiData.totalUsers || 0
+      },
+      // Datos adicionales que tu API proporciona
+      additionalData: {
+        vehicleDistribution: apiData.vehicleDistribution,
+        weeklyReservations: apiData.weeklyReservations
+      }
+    };
+  };
+
+  // Stats por defecto en caso de error
+  const getDefaultStats = () => {
+    return {
+      reservations: {
+        total: 0,
+        active: 0,
+        completed: 0
+      },
+      payments: {
+        total: 0,
+        revenue: 0,
+        completed: 0,
+        pending: 0
+      },
+      parking: {
+        total: 0,
+        available: 0
+      },
+      users: {
+        total: 0
+      },
+      additionalData: {
+        vehicleDistribution: { cars: 100 },
+        weeklyReservations: []
+      }
+    };
+  };
+
   const handleLogout = () => {
-    // Limpiar todos los datos de autenticación
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
-    
-    // Usar window.location.href para recargar completamente la página
-    // Esto asegura que App.js reevalúe la autenticación
     window.location.href = '/login';
   };
 

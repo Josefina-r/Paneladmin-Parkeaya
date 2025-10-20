@@ -8,6 +8,8 @@ function Users() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [filter, setFilter] = useState('all');
 
@@ -49,14 +51,12 @@ function Users() {
 
   // Filtrar usuarios basado en búsqueda y filtros
   const filteredUsers = users.filter(user => {
-    // Filtro de búsqueda
     const matchesSearch = 
       user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Filtro de estado
     let matchesFilter = true;
     switch (filter) {
       case 'active':
@@ -93,12 +93,9 @@ function Users() {
     try {
       setActionLoading(user.id);
       
-      // Preparar datos para la actualización
       const updateData = {
         is_active: !user.is_active
       };
-
-      console.log('Actualizando usuario:', user.id, 'con datos:', updateData);
 
       const response = await fetch(`${API_BASE}/users/users/${user.id}/`, {
         method: 'PATCH',
@@ -109,12 +106,10 @@ function Users() {
       if (response.ok) {
         const updatedUser = await response.json();
         
-        // Actualizar lista local con los datos del servidor
         setUsers(users.map(u => 
           u.id === user.id ? { ...u, ...updatedUser } : u
         ));
         
-        // Mostrar confirmación
         alert(`Usuario ${updatedUser.is_active ? 'activado' : 'desactivado'} correctamente. ${!updatedUser.is_active ? 'El usuario no podrá iniciar sesión.' : ''}`);
       } else {
         const errorData = await response.json();
@@ -128,16 +123,47 @@ function Users() {
     }
   };
 
+  // Eliminar usuario
+  const deleteUser = async (user) => {
+    try {
+      setActionLoading(user.id);
+      
+      const response = await fetch(`${API_BASE}/users/users/${user.id}/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      if (response.ok) {
+        setUsers(users.filter(u => u.id !== user.id));
+        setShowDeleteModal(false);
+        setUserToDelete(null);
+        alert('Usuario eliminado correctamente');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || errorData.message || 'Error al eliminar usuario');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Confirmar eliminación
+  const confirmDelete = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
   // No permitir modificar superusuarios (protección)
   const canModifyUser = (user) => {
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     
-    // No permitir modificar superusuarios a menos que seas superusuario
     if (user.is_superuser && !currentUser.is_superuser) {
       return false;
     }
     
-    // No permitir modificar tu propia cuenta
     if (user.id === currentUser.id) {
       return false;
     }
@@ -360,11 +386,19 @@ function Users() {
                           disabled={actionLoading === user.id || !canModify}
                           title={
                             !canModify ? 'Usuario protegido' : 
-                            user.is_active ? 'Bloquear usuario (no podrá iniciar sesión)' : 
+                            user.is_active ? 'Bloquear usuario' : 
                             'Desbloquear usuario'
                           }
                         >
                           <i className={`fas ${actionLoading === user.id ? 'fa-spinner fa-spin' : user.is_active ? 'fa-user-slash' : 'fa-user-check'}`}></i>
+                        </button>
+                        <button 
+                          className="btn-icon delete"
+                          onClick={() => confirmDelete(user)}
+                          disabled={!canModify}
+                          title={!canModify ? 'Usuario protegido' : 'Eliminar usuario'}
+                        >
+                          <i className="fas fa-trash"></i>
                         </button>
                       </div>
                     </td>
@@ -418,7 +452,7 @@ function Users() {
                   <label>Estado:</label>
                   <span className={`status-badge ${selectedUser.is_active ? 'active' : 'inactive'}`}>
                     <i className={`fas ${selectedUser.is_active ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
-                    {selectedUser.is_active ? 'Activo - Puede iniciar sesión' : 'Bloqueado - No puede iniciar sesión'}
+                    {selectedUser.is_active ? 'Activo' : 'Bloqueado'}
                   </span>
                 </div>
                 <div className="detail-item">
@@ -427,15 +461,7 @@ function Users() {
                 </div>
                 <div className="detail-item">
                   <label>Último login:</label>
-                  <span>{formatDate(selectedUser.last_login) || 'Nunca ha iniciado sesión'}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Staff:</label>
-                  <span>{selectedUser.is_staff ? 'Sí' : 'No'}</span>
-                </div>
-                <div className="detail-item">
-                  <label>Superusuario:</label>
-                  <span>{selectedUser.is_superuser ? 'Sí' : 'No'}</span>
+                  <span>{formatDate(selectedUser.last_login) || 'Nunca'}</span>
                 </div>
               </div>
             </div>
@@ -447,16 +473,89 @@ function Users() {
                 Cerrar
               </button>
               {canModifyUser(selectedUser) && (
-                <button 
-                  className={`btn-primary ${selectedUser.is_active ? 'warning' : 'success'}`}
-                  onClick={() => {
-                    toggleUserStatus(selectedUser);
-                    setShowUserModal(false);
-                  }}
-                >
-                  {selectedUser.is_active ? 'Bloquear Usuario' : 'Desbloquear Usuario'}
-                </button>
+                <div className="modal-actions">
+                  <button 
+                    className={`btn-primary ${selectedUser.is_active ? 'warning' : 'success'}`}
+                    onClick={() => {
+                      toggleUserStatus(selectedUser);
+                      setShowUserModal(false);
+                    }}
+                  >
+                    {selectedUser.is_active ? 'Bloquear Usuario' : 'Desbloquear Usuario'}
+                  </button>
+                  <button 
+                    className="btn-danger"
+                    onClick={() => {
+                      setShowUserModal(false);
+                      confirmDelete(selectedUser);
+                    }}
+                  >
+                    <i className="fas fa-trash"></i>
+                    Eliminar Usuario
+                  </button>
+                </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar */}
+      {showDeleteModal && userToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content delete-modal">
+            <div className="modal-header">
+              <h3>Confirmar Eliminación</h3>
+              <button 
+                className="close-btn"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUserToDelete(null);
+                }}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="warning-icon">
+                <i className="fas fa-exclamation-triangle"></i>
+              </div>
+              <p>
+                ¿Estás seguro de que deseas eliminar al usuario <strong>{userToDelete.username}</strong>?
+              </p>
+              <p className="warning-text">
+                <i className="fas fa-info-circle"></i>
+                Esta acción no se puede deshacer. Se eliminarán todos los datos asociados al usuario.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn-secondary"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUserToDelete(null);
+                }}
+                disabled={actionLoading === userToDelete.id}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn-danger"
+                onClick={() => deleteUser(userToDelete)}
+                disabled={actionLoading === userToDelete.id}
+              >
+                {actionLoading === userToDelete.id ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i>
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-trash"></i>
+                    Sí, Eliminar Usuario
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

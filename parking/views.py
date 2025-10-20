@@ -47,43 +47,43 @@ def dashboard_stats(request):
         # Total de usuarios
         total_users = User.objects.count()
         
-        # Estacionamientos disponibles (con plazas disponibles)
+        # Estadísticas de estacionamientos
+        total_parkings = ParkingLot.objects.count()
         available_parkings = ParkingLot.objects.filter(plazas_disponibles__gt=0).count()
         
-        # Total de ingresos (suma de todos los pagos)
+        # Estadísticas de pagos
+        total_payments = Payment.objects.count()
         total_revenue = Payment.objects.aggregate(total=Sum('monto'))['total'] or 0
+        completed_payments = Payment.objects.filter(estado='pagado').count()
+        pending_payments = Payment.objects.filter(estado='pendiente').count()
         
-        # Reservas activas (del día actual)
-        today = timezone.now().date()
+        # Estadísticas de reservas
+        total_reservations = Reservation.objects.count()
         active_reservations = Reservation.objects.filter(
-            fecha_reserva=today,
             estado__in=['activa', 'confirmada']
         ).count()
+        completed_reservations = Reservation.objects.filter(estado='completada').count()
         
-        # Distribución por tipo de vehículo (solo carros)
-        vehicle_distribution = {
-            'cars': 100  # Como solo manejas carros
-        }
-        
-        # Reservas de los últimos 7 días
-        last_7_days = timezone.now().date() - timedelta(days=7)
-        weekly_reservations = []
-        
-        for i in range(7):
-            day = last_7_days + timedelta(days=i)
-            count = Reservation.objects.filter(fecha_reserva=day).count()
-            weekly_reservations.append({
-                'day': day.strftime('%a'),
-                'count': count
-            })
-        
+        # Devolver datos en el formato que espera el frontend
         return Response({
-            'totalUsers': total_users,
-            'availableParkings': available_parkings,
-            'totalRevenue': total_revenue,
-            'activeReservations': active_reservations,
-            'vehicleDistribution': vehicle_distribution,
-            'weeklyReservations': weekly_reservations
+            'reservations': {
+                'total': total_reservations,
+                'active': active_reservations,
+                'completed': completed_reservations
+            },
+            'payments': {
+                'total': total_payments,
+                'revenue': float(total_revenue),
+                'completed': completed_payments,
+                'pending': pending_payments
+            },
+            'parking': {
+                'total': total_parkings,
+                'available': available_parkings
+            },
+            'users': {
+                'total': total_users
+            }
         })
         
     except Exception as e:
