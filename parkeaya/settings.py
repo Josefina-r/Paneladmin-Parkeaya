@@ -93,9 +93,9 @@ WSGI_APPLICATION = 'parkeaya.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'parkeya_db',
+        'NAME': 'parkeaya_db',
         'USER': 'postgres',
-        'PASSWORD': 'katherin859!',
+        'PASSWORD': '1234',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -132,7 +132,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
-    "http://localhost:5173",  # Vite
+    "http://localhost:5173",  
+    "http://localhost:8081", 
+    "http://127.0.0.1:8081",
 ]
 
 CORS_ALLOW_METHODS = [
@@ -148,6 +150,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
+    "http://localhost:8081",  
+    "http://127.0.0.1:8081",
 ]
 
 CSRF_COOKIE_SECURE = False

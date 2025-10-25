@@ -35,6 +35,7 @@ from parking.views import ParkingLotViewSet
 from reservations.views import ReservationViewSet
 from payments.views import PaymentViewSet
 from tickets.views import TicketViewSet
+from users import views
 
 router = routers.DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
@@ -44,18 +45,20 @@ router.register(r'reservations', ReservationViewSet, basename='reservation')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'tickets', TicketViewSet, basename='ticket')
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     
     # URLs específicas PRIMERO
     path('api/users/', include('users.urls')),
-    
+     
    
     path('api/dashboard/stats/', dashboard_stats, name='dashboard_stats'),
     path('api/dashboard/recent-reservations/', recent_reservations, name='recent_reservations'),
     
     # Router DESPUÉS
     path('api/', include(router.urls)),
+    path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     
     # JWT endpoints
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -63,4 +66,14 @@ urlpatterns = [
 
     # Autenticación de cuenta gmail
     path("auth/", include("dj_rest_auth.urls")), 
+
+
+    path("api/register/", views.register_owner, name="register_owner"),
+
+    path('api/simple-login/', views.simple_login, name='simple_login'),
+    path('api/admin-login/', views.admin_login, name='admin_login'),
+
+    
+    
+
 ]

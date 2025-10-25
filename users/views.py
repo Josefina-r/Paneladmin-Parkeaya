@@ -9,7 +9,6 @@ from .models import Car
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .serializers import UserSerializer
@@ -18,6 +17,8 @@ from .serializers import UserSerializer
 from rest_framework.decorators import api_view, permission_classes
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import permissions, status
+
 
 
 
@@ -185,3 +186,19 @@ def check_admin_permission(request):
             'is_superuser': user.is_superuser
         }
     })
+
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def register_owner(request):
+    """
+    Registro de usuario tipo DUEÑO
+    """
+    data = request.data.copy()
+    data['rol'] = 'owner'  # fuerza el rol
+    serializer = UserSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "Dueño registrado correctamente"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
