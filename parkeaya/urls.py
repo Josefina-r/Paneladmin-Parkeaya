@@ -34,8 +34,9 @@ from users.views import UserViewSet, CarViewSet
 from parking.views import ParkingLotViewSet
 from reservations.views import ReservationViewSet
 from payments.views import PaymentViewSet
-from tickets.views import TicketViewSet
+from tickets.views import TicketViewSet, TicketValidationAPIView
 from users import views
+
 
 router = routers.DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
@@ -64,16 +65,22 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # Autenticación de cuenta gmail
+    # Autenticación de cuenta
     path("auth/", include("dj_rest_auth.urls")), 
-
-
     path("api/register/", views.register_owner, name="register_owner"),
-
     path('api/simple-login/', views.simple_login, name='simple_login'),
     path('api/admin-login/', views.admin_login, name='admin_login'),
 
+    #reservations app urls
+    path('api/auth/', include('users.urls')),
+    path('api/parking/', include('parking.urls')),
+    path('api/reservations/', include('reservations.urls')),
+    path('api/payments/', include('payments.urls')),
+    # Ticket-specific extra endpoints (validation and by-parking)
+    path('api/tickets/validate/', TicketValidationAPIView.as_view(), name='validate-ticket'),
+    path('api/tickets/parking/<int:parking_id>/', TicketViewSet.as_view({'get': 'by_parking'}), name='tickets-by-parking'),
     
-    
+    # Complaints app urls
+    path('api/', include('complaints.urls')),
 
 ]
