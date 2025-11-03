@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-zya-n4$e(vxg)(i4bsk*7+o2egqusps6=25o-$ge2ek@pyead&'
 DEBUG = True
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '0.0.0.0', '192.168.1.*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     'reports',
     'notifications',
     'complaints',
-    
+    'django_extensions',
 ]
 
 SITE_ID = 1
@@ -61,6 +61,13 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
     ],
 }
 
@@ -98,9 +105,9 @@ WSGI_APPLICATION = 'parkeaya.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'parkeaya_db',
+        'NAME': 'parkeya_db',
         'USER': 'postgres',
-        'PASSWORD': '1234',
+        'PASSWORD': 'katherin859!',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -140,6 +147,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  
     "http://localhost:8081", 
     "http://127.0.0.1:8081",
+    "http://10.0.2.2:8000",
+    "http://10.0.2.2",
+    "http://10.0.2.2:3000",
 ]
 
 CORS_ALLOW_METHODS = [
@@ -157,6 +167,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:8081",  
     "http://127.0.0.1:8081",
+    "http://10.0.2.2:8000",
+    "http://10.0.2.2",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -167,8 +179,34 @@ REST_AUTH = {
     'JWT_AUTH_COOKIE': 'jwt-auth',
     'JWT_AUTH_REFRESH_COOKIE': 'jwt-refresh',
 }
+
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
+}
+
+# Configuración adicional para desarrollo
+APPEND_SLASH = True
+
+# Logging para debug
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
 }

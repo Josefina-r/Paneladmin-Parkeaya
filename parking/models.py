@@ -1,7 +1,9 @@
+# models.py - CORREGIDO Y COMPLETO
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
+from datetime import time
 
 
 class ParkingLot(models.Model):
@@ -43,7 +45,6 @@ class ParkingLot(models.Model):
             raise ValueError("Las plazas disponibles no pueden exceder el total.")
         super().save(*args, **kwargs)
 
-    
     def esta_abierto(self):
         if not self.horario_apertura or not self.horario_cierre:
             return True
@@ -77,6 +78,139 @@ class ParkingReview(models.Model):
         super().save(*args, **kwargs)
         estacionamiento = self.estacionamiento
         reseñas = estacionamiento.reseñas.all()
-        estacionamiento.rating_promedio = sum(r.calificacion for r in reseñas) / len(reseñas)
-        estacionamiento.total_reseñas = len(reseñas)
-        estacionamiento.save()
+        if reseñas:
+            estacionamiento.rating_promedio = sum(r.calificacion for r in reseñas) / len(reseñas)
+            estacionamiento.total_reseñas = len(reseñas)
+            estacionamiento.save()
+
+
+class ParkingApprovalRequest(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pendiente'),
+        ('APPROVED', 'Aprobado'),
+        ('REJECTED', 'Rechazado'),
+    ]
+    
+    # Información del estacionamiento (igual que ParkingLot)
+    nombre = models.CharField(max_length=100)
+    direccion = models.CharField(max_length=200)
+    coordenadas = models.CharField(max_length=100, blank=True)
+    telefono = models.CharField(
+        max_length=15,
+        validators=[RegexValidator(regex=r'^\+?1?\d{9,15}$', message="Número de teléfono inválido.")],
+        blank=True
+    )
+    descripcion = models.TextField(blank=True)
+    horario_apertura = models.TimeField(default=time(8, 0))
+    horario_cierre = models.TimeField(default=time(22, 0))
+    nivel_seguridad = models.CharField(max_length=50, default='Estándar')
+    tarifa_hora = models.DecimalField(max_digits=6, decimal_places=2)
+    total_plazas = models.PositiveIntegerField()
+    plazas_disponibles = models.PositiveIntegerField()
+    
+    # Servicios adicionales
+    servicios = models.JSONField(default=list, blank=True)
+    
+    # Información de la solicitud
+    panel_local_id = models.CharField(max_length=100)
+    notas_aprobacion = models.TextField(blank=True)
+    motivo_rechazo = models.TextField(blank=True)
+    
+    # Estado y auditoría
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    solicitado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='solicitudes_aprobacion'
+    )
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='solicitudes_revisadas'
+    )
+    
+    # Timestamps
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    fecha_revision = models.DateTimeField(null=True, blank=True)
+    
+    # Relación con el estacionamiento creado
+    estacionamiento_creado = models.OneToOneField(
+        ParkingLot, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='solicitud_aprobacion'
+    )
+
+    class Meta:
+        ordering = ['-fecha_solicitud']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['panel_local_id']),
+            models.Index(fields=['fecha_solicitud']),
+        ]
+
+    def __str__(self):
+        return f"Solicitud: {self.nombre} - {self.get_status_display()}"
+
+    def save(self, *args, **kwargs):
+        # Si se aprueba y no tiene estacionamiento creado, crearlo
+        if self.status == 'APPROVED' and not self.estacionamiento_creado:
+            self.crear_estacionamiento()
+        
+        # Si se rechaza, guardar fecha de revisión
+        if self.status in ['APPROVED', 'REJECTED'] and not self.fecha_revision:
+            self.fecha_revision = timezone.now()
+            
+        super().save(*args, **kwargs)
+
+    def crear_estacionamiento(self):
+        """Crea un ParkingLot a partir de la solicitud aprobada"""
+        try:
+            parking = ParkingLot.objects.create(
+                dueno=self.solicitado_por,
+                nombre=self.nombre,
+                direccion=self.direccion,
+                coordenadas=self.coordenadas,
+                telefono=self.telefono,
+                descripcion=self.descripcion,
+                horario_apertura=self.horario_apertura,
+                horario_cierre=self.horario_cierre,
+                nivel_seguridad=self.nivel_seguridad,
+                tarifa_hora=self.tarifa_hora,
+                total_plazas=self.total_plazas,
+                plazas_disponibles=self.plazas_disponibles,
+                aprobado=True,
+                activo=True
+            )
+            self.estacionamiento_creado = parking
+            # Llamar a save() sin argumentos para evitar recursión
+            super().save(update_fields=['estacionamiento_creado'])
+            return parking
+        except Exception as e:
+            print(f"Error creando estacionamiento: {e}")
+            return None
+
+    def aprobar(self, usuario_revisor):
+        """Aprueba la solicitud"""
+        self.status = 'APPROVED'
+        self.revisado_por = usuario_revisor
+        self.fecha_revision = timezone.now()
+        self.save()
+
+    def rechazar(self, usuario_revisor, motivo=""):
+        """Rechaza la solicitud"""
+        self.status = 'REJECTED'
+        self.revisado_por = usuario_revisor
+        self.motivo_rechazo = motivo
+        self.fecha_revision = timezone.now()
+        self.save()
+
+    @property
+    def dias_pendiente(self):
+        """Días que ha estado pendiente la solicitud"""
+        if self.status == 'PENDING':
+            return (timezone.now() - self.fecha_solicitud).days
+        return 0

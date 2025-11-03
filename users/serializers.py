@@ -19,13 +19,18 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'rol', 'telefono', 'activo', 'fecha_registro', 'cars', 'password']
-        read_only_fields = ['fecha_registro', 'activo']
+        fields = [
+            'id', 'username', 'email', 'rol', 'telefono', 'activo', 
+            'fecha_registro', 'cars', 'password',
+            # AGREGAR ESTOS CAMPOS
+            'date_joined', 'last_login', 'is_active', 'is_staff', 'is_superuser'
+        ]
+        read_only_fields = ['fecha_registro', 'activo', 'date_joined', 'last_login']
 
     def create(self, validated_data):
         password = validated_data.pop('password')
         user = User(**validated_data)
-        user.set_password(password)  # Esto guarda el hash de la contraseña
+        user.set_password(password)
         user.save()
         return user
 

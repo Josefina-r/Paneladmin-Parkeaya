@@ -14,28 +14,97 @@ function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
   const [globalStats, setGlobalStats] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   const API_BASE = 'http://localhost:8000/api';
 
+  // ✅ CORRECCIÓN: Usar JWT Bearer token
   const getAuthHeaders = () => {
     const token = localStorage.getItem('access_token');
+    console.log('🔐 JWT Token encontrado:', token ? 'Sí' : 'No');
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${token}` // ← JWT usa Bearer
     };
   };
 
   useEffect(() => {
+    console.log('=== 🔍 DEBUG COMPLETO DEL LOCALSTORAGE ===');
+    console.log('access_token:', localStorage.getItem('access_token'));
+    console.log('refresh_token:', localStorage.getItem('refresh_token'));
+    console.log('user:', localStorage.getItem('user'));
+    
     const userData = localStorage.getItem('user');
-    if (userData) {
+    const token = localStorage.getItem('access_token');
+    
+    console.log('Verificando autenticación:', { 
+      userData: userData ? 'Presente' : 'Faltante',
+      token: token ? 'Presente' : 'Faltante'
+    });
+
+    if (userData && token) {
       setUser(JSON.parse(userData));
-      loadGlobalStats();
+      loadDashboardData();
     } else {
+      console.log('❌ Redirigiendo a login - falta token o usuario');
       navigate('/login');
     }
   }, [navigate]);
+
+  const loadDashboardData = async () => {
+    try {
+      console.log('🔄 Cargando datos del dashboard con JWT...');
+      
+      // PRIMERO: Verificar autenticación con endpoint de usuarios
+      console.log('🔐 Testeando autenticación JWT con /users/users/');
+      const authTest = await fetch(`${API_BASE}/users/users/`, {
+        headers: getAuthHeaders()
+      });
+      
+      console.log('👤 Auth test status:', authTest.status);
+      
+      if (authTest.ok) {
+        console.log('✅ Autenticación JWT confirmada, cargando dashboard...');
+        
+        // Ahora cargar dashboard
+        const response = await fetch(`${API_BASE}/parking/dashboard/data/`, {
+          method: 'GET',
+          headers: getAuthHeaders()
+        });
+
+        console.log('📊 Dashboard response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Datos del dashboard recibidos:', data);
+          setDashboardData(data);
+          
+          if (data.stats) {
+            setGlobalStats({
+              totalUsers: data.stats.total_users || 0,
+              availableParkings: data.stats.active_parkings || 0,
+              totalRevenue: data.stats.today_revenue || 0,
+              activeReservations: data.stats.active_reservations || 0
+            });
+          }
+        } else if (response.status === 401) {
+          console.error('❌ Error 401 - JWT token inválido o expirado');
+          handleAuthError();
+        } else {
+          console.error('❌ Error loading dashboard:', response.status);
+          await loadGlobalStats(); // Fallback
+        }
+      } else {
+        console.error('❌ Auth test failed:', authTest.status);
+        handleAuthError();
+      }
+    } catch (error) {
+      console.error('💥 Error loading dashboard data:', error);
+      await loadGlobalStats(); // Fallback
+    }
+  };
 
   const loadGlobalStats = async () => {
     try {
@@ -46,20 +115,26 @@ function Dashboard() {
       if (response.ok) {
         const data = await response.json();
         setGlobalStats(data);
+      } else if (response.status === 401) {
+        handleAuthError();
       }
     } catch (error) {
-      console.error('Error loading global stats:', error);
+      console.error('💥 Error loading global stats:', error);
     }
   };
 
-  const handleLogout = () => {
-    // Limpiar todos los datos de autenticación
+  const handleAuthError = () => {
+    console.log('🔐 Error de autenticación JWT, limpiando datos...');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
-    
-    // Usar window.location.href para recargar completamente la página
-    // Esto asegura que App.js reevalúe la autenticación
+    navigate('/login');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
     window.location.href = '/login';
   };
 
@@ -74,11 +149,13 @@ function Dashboard() {
         currentPath={location.pathname}
         onNavigate={navigate}
         stats={globalStats}
+        userRole={dashboardData?.user?.role}
       />
       
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
         <Header 
           user={user}
+          dashboardData={dashboardData}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           onLogout={handleLogout}
           stats={globalStats}
@@ -86,8 +163,14 @@ function Dashboard() {
         
         <div className="dashboard-content">
           <Routes>
-            <Route path="/" element={<Home stats={globalStats} />} />
-            <Route path="/home" element={<Home stats={globalStats} />} />
+            <Route 
+              path="/" 
+              element={<Home stats={globalStats} dashboardData={dashboardData} />} 
+            />
+            <Route 
+              path="/home" 
+              element={<Home stats={globalStats} dashboardData={dashboardData} />} 
+            />
             <Route path="/users" element={<Users />} />
             <Route path="/parking" element={<Parking />} />
             <Route path="/reservations" element={<Reservations />} />
