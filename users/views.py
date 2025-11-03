@@ -1,26 +1,17 @@
 from django.shortcuts import render
-
-# Create your views here.
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, generics, status
 from django.contrib.auth import get_user_model
 from .serializers import UserSerializer, CarSerializer
-
 from .models import Car
-from rest_framework import generics
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .serializers import UserSerializer
 
 # AGREGAR ESTOS IMPORTS
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework import permissions, status
-
-
-
+from django.utils import timezone
 
 # Registro de usuario
 class RegisterView(generics.CreateAPIView):
@@ -49,7 +40,8 @@ class IsAdminOrSelf(permissions.BasePermission):
         return obj == request.user
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by('-date_joined')
+    # MODIFICAR EL QUERYSET PARA EXCLUIR USUARIOS ELIMINADOS
+    queryset = User.objects.filter(eliminado=False).order_by('-date_joined')
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -57,6 +49,54 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ['create']:
             return [permissions.AllowAny()]
         return super().get_permissions()
+
+    # AGREGAR ESTE MÉTODO PARA SOBREESCRIBIR LA ELIMINACIÓN
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            
+            # No permitir eliminación de superusers o el usuario actual
+            if instance.is_superuser:
+                return Response(
+                    {"error": "No se puede eliminar un superusuario"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if instance == request.user:
+                return Response(
+                    {"error": "No puedes eliminar tu propia cuenta"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Realizar eliminación suave
+            instance.soft_delete()
+            
+            return Response(
+                {"message": "Usuario eliminado correctamente"},
+                status=status.HTTP_200_OK
+            )
+            
+        except Exception as e:
+            return Response(
+                {"error": f"No se pudo eliminar el usuario: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    # AGREGAR ACCIÓN PARA REACTIVAR USUARIOS (OPCIONAL)
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        """Reactivar un usuario desactivado"""
+        user = self.get_object()
+        user.activo = True
+        user.is_active = True
+        user.eliminado = False
+        user.fecha_eliminacion = None
+        user.save()
+        
+        return Response({
+            "message": "Usuario reactivado correctamente",
+            "activo": user.activo
+        })
 
 class CarViewSet(viewsets.ModelViewSet):
     queryset = Car.objects.all().order_by('-created_at')
@@ -74,7 +114,7 @@ class CarViewSet(viewsets.ModelViewSet):
         serializer.save(usuario=self.request.user)
 
 # =============================================================================
-# AGREGAR ESTAS VISTAS ADICIONALES PARA EL LOGIN DEL PANEL ADMIN
+# VISTAS EXISTENTES (NO MODIFICAR)
 # =============================================================================
 
 @api_view(['POST'])
@@ -186,8 +226,6 @@ def check_admin_permission(request):
             'is_superuser': user.is_superuser
         }
     })
-
-
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])

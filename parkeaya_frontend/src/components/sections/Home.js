@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './Home.css';
 
-function Home({ stats }) {
-  const [dashboardData, setDashboardData] = useState({
+function Home({ stats, dashboardData }) {
+  const [localDashboardData, setLocalDashboardData] = useState({
     totalUsers: 0,
     activeParkings: 0,
     todayReservations: 0,
@@ -15,22 +15,52 @@ function Home({ stats }) {
 
   const API_BASE = 'http://localhost:8000/api';
 
+  // CORRECCIÓN: Cambiar Bearer por Token
   const getAuthHeaders = () => {
     const token = localStorage.getItem('access_token');
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Token ${token}` // CAMBIADO: Bearer → Token
     };
   };
 
   useEffect(() => {
-    loadRealData();
-  }, [stats]);
+    // Usar datos del dashboard principal si están disponibles
+    if (dashboardData && dashboardData.stats) {
+      console.log('✅ Usando datos del dashboard principal:', dashboardData);
+      setLocalDashboardData({
+        totalUsers: dashboardData.stats.total_users || 0,
+        activeParkings: dashboardData.stats.active_parkings || 0,
+        todayReservations: dashboardData.stats.active_reservations || 0,
+        totalRevenue: dashboardData.stats.today_revenue || 0,
+        pendingViolations: 0,
+        availableSpots: dashboardData.stats.available_spaces || 0
+      });
+      setLoading(false);
+    } else if (stats) {
+      // Usar stats globales como fallback
+      console.log('🔄 Usando stats globales como fallback:', stats);
+      setLocalDashboardData({
+        totalUsers: stats.totalUsers || 0,
+        activeParkings: stats.availableParkings || 0,
+        todayReservations: stats.activeReservations || 0,
+        totalRevenue: stats.totalRevenue || 0,
+        pendingViolations: 0,
+        availableSpots: 0
+      });
+      setLoading(false);
+    } else {
+      // Cargar datos manualmente
+      loadRealData();
+    }
+  }, [stats, dashboardData]);
 
   const loadRealData = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Cargando datos reales...');
 
+      // CORRECCIÓN: Cambiar la URL de parking
       const [
         usersResponse,
         parkingsResponse,
@@ -39,7 +69,8 @@ function Home({ stats }) {
         recentReservationsResponse
       ] = await Promise.all([
         fetch(`${API_BASE}/users/users/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/parking/parking/?available=true`, { headers: getAuthHeaders() }),
+        // CAMBIADO: parking/parking/ → parking/parkinglots/
+        fetch(`${API_BASE}/parking/parkinglots/?available=true`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE}/reservations/?fecha_reserva=${new Date().toISOString().split('T')[0]}`, { 
           headers: getAuthHeaders() 
         }),
@@ -47,41 +78,62 @@ function Home({ stats }) {
         fetch(`${API_BASE}/parking/admin/recent-reservations/`, { headers: getAuthHeaders() })
       ]);
 
+      console.log('📊 Responses:', {
+        users: usersResponse.status,
+        parkings: parkingsResponse.status,
+        reservations: reservationsResponse.status,
+        payments: paymentsResponse.status,
+        recent: recentReservationsResponse.status
+      });
+
       const usersData = usersResponse.ok ? await usersResponse.json() : [];
       const parkingsData = parkingsResponse.ok ? await parkingsResponse.json() : [];
       const reservationsData = reservationsResponse.ok ? await reservationsResponse.json() : [];
       const paymentsData = paymentsResponse.ok ? await paymentsResponse.json() : [];
       const recentReservations = recentReservationsResponse.ok ? await recentReservationsResponse.json() : [];
 
-      const totalRevenue = paymentsData.reduce((sum, payment) => sum + (payment.monto || 0), 0);
+      console.log('📦 Datos recibidos:', {
+        users: usersData.length || usersData.count,
+        parkings: parkingsData.length || parkingsData.count,
+        reservations: reservationsData.length || reservationsData.count,
+        payments: paymentsData.length || paymentsData.count,
+        recentReservations: recentReservations.length
+      });
+
+      const totalRevenue = paymentsData.reduce((sum, payment) => sum + (parseFloat(payment.monto) || 0), 0);
       
-      setDashboardData({
+      setLocalDashboardData({
         totalUsers: usersData.count || usersData.length || 0,
         activeParkings: parkingsData.count || parkingsData.length || 0,
         todayReservations: reservationsData.count || reservationsData.length || 0,
         totalRevenue: totalRevenue,
         pendingViolations: 0,
-        availableSpots: parkingsData.reduce((sum, parking) => sum + (parking.plazas_disponibles || 0), 0)
+        availableSpots: Array.isArray(parkingsData) ? 
+          parkingsData.reduce((sum, parking) => sum + (parseInt(parking.plazas_disponibles) || 0), 0) : 0
       });
 
-      const activity = recentReservations.slice(0, 5).map(reservation => ({
-        type: 'reservation',
-        user: reservation.usuario?.username || 'Usuario',
-        time: formatTime(new Date(reservation.fecha_creacion || reservation.fecha_reserva)),
-        details: `Reserva ${reservation.estado || 'confirmada'}`,
-        reservation
-      }));
+      // Procesar actividad reciente
+      const activity = Array.isArray(recentReservations) ? 
+        recentReservations.slice(0, 5).map(reservation => ({
+          type: 'reservation',
+          user: reservation.usuario?.username || 'Usuario',
+          time: formatTime(new Date(reservation.fecha_creacion || reservation.fecha_reserva || reservation.hora_entrada)),
+          details: `Reserva ${reservation.estado || 'confirmada'}`,
+          reservation
+        })) : [];
 
       setRecentActivity(activity);
 
     } catch (error) {
-      console.error('Error loading real data:', error);
+      console.error('💥 Error loading real data:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const formatTime = (date) => {
+    if (!date || isNaN(date.getTime())) return 'Reciente';
+    
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -123,7 +175,7 @@ function Home({ stats }) {
       
       if (response.ok) {
         const data = await response.json();
-        alert(`Reporte generado:\nUsuarios: ${data.totalUsers}\nIngresos: $${data.totalRevenue}`);
+        alert(`📊 Reporte generado:\nUsuarios: ${data.totalUsers}\nIngresos: $${data.totalRevenue}`);
       }
     } catch (error) {
       console.error('Error generating report:', error);
@@ -153,9 +205,9 @@ function Home({ stats }) {
           </div>
           <div className="stat-content">
             <h3>Usuarios Totales</h3>
-            <div className="stat-number">{dashboardData.totalUsers}</div>
+            <div className="stat-number">{localDashboardData.totalUsers}</div>
             <div className="stat-change positive">
-              {Math.round(dashboardData.totalUsers * 0.1)} este mes
+              {Math.round(localDashboardData.totalUsers * 0.1)} este mes
             </div>
           </div>
         </div>
@@ -166,9 +218,9 @@ function Home({ stats }) {
           </div>
           <div className="stat-content">
             <h3>Estacionamientos Activos</h3>
-            <div className="stat-number">{dashboardData.activeParkings}</div>
+            <div className="stat-number">{localDashboardData.activeParkings}</div>
             <div className="stat-change positive">
-              {Math.round(dashboardData.activeParkings * 0.05)} disponibles
+              {Math.round(localDashboardData.activeParkings * 0.05)} disponibles
             </div>
           </div>
         </div>
@@ -179,9 +231,9 @@ function Home({ stats }) {
           </div>
           <div className="stat-content">
             <h3>Reservas Hoy</h3>
-            <div className="stat-number">{dashboardData.todayReservations}</div>
+            <div className="stat-number">{localDashboardData.todayReservations}</div>
             <div className="stat-change positive">
-              +{Math.round(dashboardData.todayReservations * 0.2)}% vs ayer
+              +{Math.round(localDashboardData.todayReservations * 0.2)}% vs ayer
             </div>
           </div>
         </div>
@@ -192,9 +244,9 @@ function Home({ stats }) {
           </div>
           <div className="stat-content">
             <h3>Ingresos Totales</h3>
-            <div className="stat-number">${dashboardData.totalRevenue.toLocaleString()}</div>
+            <div className="stat-number">${localDashboardData.totalRevenue.toLocaleString()}</div>
             <div className="stat-change positive">
-              +{Math.round((dashboardData.totalRevenue / 1000) * 15)}% este mes
+              +{Math.round((localDashboardData.totalRevenue / 1000) * 15)}% este mes
             </div>
           </div>
         </div>
@@ -205,9 +257,9 @@ function Home({ stats }) {
           </div>
           <div className="stat-content">
             <h3>Infracciones</h3>
-            <div className="stat-number">{dashboardData.pendingViolations}</div>
+            <div className="stat-number">{localDashboardData.pendingViolations}</div>
             <div className="stat-change negative">
-              {dashboardData.pendingViolations > 0 ? 'Por revisar' : 'Todo en orden'}
+              {localDashboardData.pendingViolations > 0 ? 'Por revisar' : 'Todo en orden'}
             </div>
           </div>
         </div>
@@ -218,9 +270,9 @@ function Home({ stats }) {
           </div>
           <div className="stat-content">
             <h3>Espacios Libres</h3>
-            <div className="stat-number">{dashboardData.availableSpots}</div>
+            <div className="stat-number">{localDashboardData.availableSpots}</div>
             <div className="stat-change">
-              {dashboardData.availableSpots > 10 ? 'Disponibles' : 'Pocos espacios'}
+              {localDashboardData.availableSpots > 10 ? 'Disponibles' : 'Pocos espacios'}
             </div>
           </div>
         </div>
